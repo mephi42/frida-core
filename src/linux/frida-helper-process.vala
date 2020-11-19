@@ -101,6 +101,7 @@ namespace Frida {
 
 				case Gum.CpuType.AMD64:
 				case Gum.CpuType.ARM64:
+				case Gum.CpuType.S390X:
 					path = path_template.printf (64);
 					break;
 
@@ -151,6 +152,7 @@ namespace Frida {
 
 				case Gum.CpuType.AMD64:
 				case Gum.CpuType.ARM64:
+				case Gum.CpuType.S390X:
 					return yield obtain_for_64bit (cancellable);
 
 				default:

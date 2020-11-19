@@ -15,6 +15,9 @@
 #ifdef HAVE_MIPS
 # include <gum/arch-mips/gummipswriter.h>
 #endif
+#ifdef HAVE_S390X
+# include <gum/arch-s390x/gums390xwriter.h>
+#endif
 #include <gum/gum.h>
 #include <gum/gumlinux.h>
 #include <dlfcn.h>
@@ -148,6 +151,8 @@ struct _FridaRegs
 
   guint64 __padding[8];
 };
+#elif defined (HAVE_S390X)
+typedef s390_regs FridaRegs;
 #else
 # error Unsupported architecture
 #endif
@@ -2014,6 +2019,120 @@ frida_inject_instance_emit_payload_code (const FridaInjectParams * params, GumAd
   gum_mips_writer_clear (&cw);
 }
 
+#elif defined (HAVE_S390X)
+
+static void
+frida_inject_instance_commit_s390x_code (GumS390xWriter * cw, FridaCodeChunk * code)
+{
+  gum_s390x_writer_flush (cw);
+  code->cur = gum_s390x_writer_cur (cw);
+  code->size += gum_s390x_writer_offset (cw);
+}
+
+static void
+frida_inject_instance_emit_payload_code (const FridaInjectParams * params, GumAddress remote_address, FridaCodeChunk * code)
+{
+  GumS390xWriter cw;
+  const guint worker_offset = 192;
+
+  gum_s390x_writer_init (&cw, code->cur);
+  cw.pc = remote_address + params->code.offset + code->size;
+
+  gum_s390x_writer_put_stmg (&cw, SYSZ_REG_2, SYSZ_REG_15, 16, SYSZ_REG_15);
+  gum_s390x_writer_put_lay (&cw, SYSZ_REG_15, -160, SYSZ_REG_0, SYSZ_REG_15);
+
+  gum_s390x_writer_put_larl (&cw, SYSZ_REG_2,
+      FRIDA_REMOTE_DATA_FIELD (pthread_so_string));
+  gum_s390x_writer_put_lghi (&cw, SYSZ_REG_3, RTLD_LAZY);
+  gum_s390x_writer_put_brasl (&cw, SYSZ_REG_14, params->dlopen_impl);
+  gum_s390x_writer_put_lgr (&cw, SYSZ_REG_7, SYSZ_REG_2);
+
+  gum_s390x_writer_put_larl (&cw, SYSZ_REG_3,
+      FRIDA_REMOTE_DATA_FIELD (pthread_create_string));
+  gum_s390x_writer_put_brasl (&cw, SYSZ_REG_14, params->dlsym_impl);
+  gum_s390x_writer_put_lgr (&cw, SYSZ_REG_8, SYSZ_REG_2);
+
+  gum_s390x_writer_put_larl (&cw, SYSZ_REG_2,
+      FRIDA_REMOTE_DATA_FIELD (worker_thread));
+  gum_s390x_writer_put_xgr (&cw, SYSZ_REG_3, SYSZ_REG_3);
+  gum_s390x_writer_put_larl (&cw, SYSZ_REG_4, remote_address + worker_offset);
+  gum_s390x_writer_put_basr (&cw, SYSZ_REG_14, SYSZ_REG_8);
+
+  gum_s390x_writer_put_lgr (&cw, SYSZ_REG_2, SYSZ_REG_7);
+  gum_s390x_writer_put_larl (&cw, SYSZ_REG_3,
+      FRIDA_REMOTE_DATA_FIELD (pthread_detach_string));
+  gum_s390x_writer_put_brasl (&cw, SYSZ_REG_14, params->dlsym_impl);
+  gum_s390x_writer_put_lgr (&cw, SYSZ_REG_8, SYSZ_REG_2);
+
+  gum_s390x_writer_put_larl (&cw, SYSZ_REG_2,
+      FRIDA_REMOTE_DATA_FIELD (worker_thread));
+  gum_s390x_writer_put_basr (&cw, SYSZ_REG_14, SYSZ_REG_8);
+
+  gum_s390x_writer_put_lgr (&cw, SYSZ_REG_2, SYSZ_REG_7);
+  gum_s390x_writer_put_brasl (&cw, SYSZ_REG_14, params->dlclose_impl);
+
+  gum_s390x_writer_put_break (&cw);
+  gum_s390x_writer_flush (&cw);
+  g_assert (gum_s390x_writer_offset (&cw) <= worker_offset);
+  gum_s390x_writer_put_nops (&cw,
+      worker_offset - code->size - gum_s390x_writer_offset (&cw));
+  frida_inject_instance_commit_s390x_code (&cw, code);
+  gum_s390x_writer_clear (&cw);
+
+  gum_s390x_writer_init (&cw, code->cur);
+  cw.pc = remote_address + params->code.offset + worker_offset;
+
+  gum_s390x_writer_put_stmg (&cw, SYSZ_REG_2, SYSZ_REG_15, 16, SYSZ_REG_15);
+  gum_s390x_writer_put_lay (&cw, SYSZ_REG_15, -168, SYSZ_REG_0, SYSZ_REG_15);
+
+  gum_s390x_writer_put_larl (&cw, SYSZ_REG_2,
+      FRIDA_REMOTE_DATA_FIELD (fifo_path));
+  gum_s390x_writer_put_lghi (&cw, SYSZ_REG_3, O_WRONLY | O_CLOEXEC);
+  gum_s390x_writer_put_xgr (&cw, SYSZ_REG_4, SYSZ_REG_4);
+  gum_s390x_writer_put_brasl (&cw, SYSZ_REG_14, params->open_impl);
+  gum_s390x_writer_put_lgr (&cw, SYSZ_REG_7, SYSZ_REG_2);
+
+  gum_s390x_writer_put_larl (&cw, SYSZ_REG_3,
+      FRIDA_REMOTE_DATA_FIELD (hello_byte));
+  gum_s390x_writer_put_lghi (&cw, SYSZ_REG_4, 1);
+  gum_s390x_writer_put_brasl (&cw, SYSZ_REG_14, params->write_impl);
+
+  gum_s390x_writer_put_larl (&cw, SYSZ_REG_2,
+      FRIDA_REMOTE_DATA_FIELD (so_path));
+  gum_s390x_writer_put_lghi (&cw, SYSZ_REG_3, RTLD_LAZY);
+  gum_s390x_writer_put_brasl (&cw, SYSZ_REG_14, params->dlopen_impl);
+  gum_s390x_writer_put_lgr (&cw, SYSZ_REG_8, SYSZ_REG_2);
+
+  gum_s390x_writer_put_larl (&cw, SYSZ_REG_3,
+      FRIDA_REMOTE_DATA_FIELD (entrypoint_name));
+  gum_s390x_writer_put_brasl (&cw, SYSZ_REG_14, params->dlsym_impl);
+  gum_s390x_writer_put_lgr (&cw, SYSZ_REG_9, SYSZ_REG_2);
+
+  gum_s390x_writer_put_larl (&cw, SYSZ_REG_2,
+      FRIDA_REMOTE_DATA_FIELD (entrypoint_data));
+  gum_s390x_writer_put_mvghi (&cw, 160, SYSZ_REG_15,
+      FRIDA_UNLOAD_POLICY_IMMEDIATE);
+  gum_s390x_writer_put_la (&cw, SYSZ_REG_3, 160, SYSZ_REG_0, SYSZ_REG_15);
+  gum_s390x_writer_put_xgr (&cw, SYSZ_REG_4, SYSZ_REG_4);
+  gum_s390x_writer_put_basr (&cw, SYSZ_REG_14, SYSZ_REG_9);
+
+  gum_s390x_writer_put_lghi (&cw, SYSZ_REG_2, FRIDA_UNLOAD_POLICY_IMMEDIATE);
+  gum_s390x_writer_put_cg (&cw, SYSZ_REG_2, 160, SYSZ_REG_0, SYSZ_REG_15);
+  gum_s390x_writer_put_brcl (&cw, 7, cw.pc + 18);
+
+  gum_s390x_writer_put_lgr (&cw, SYSZ_REG_2, SYSZ_REG_8);
+  gum_s390x_writer_put_brasl (&cw, SYSZ_REG_14, params->dlclose_impl);
+
+  gum_s390x_writer_put_lgr (&cw, SYSZ_REG_2, SYSZ_REG_7);
+  gum_s390x_writer_put_brasl (&cw, SYSZ_REG_14, params->close_impl);
+
+  gum_s390x_writer_put_lmg (&cw, SYSZ_REG_2, SYSZ_REG_15, 184, SYSZ_REG_15);
+  gum_s390x_writer_put_bcr (&cw, 15, SYSZ_REG_14);
+
+  frida_inject_instance_commit_s390x_code (&cw, code);
+  gum_s390x_writer_clear (&cw);
+}
+
 #endif
 
 static gboolean
@@ -2266,6 +2385,9 @@ frida_run_to_entry_point (pid_t pid, GError ** error)
 #elif defined (HAVE_MIPS)
   /* mips */
   patched_entry_code = 0x0000000d;
+#elif defined (HAVE_S390X)
+  /* s390x */
+  patched_entry_code = 0x0001000000000000L;
 #else
 # error Unsupported architecture
 #endif
@@ -2293,6 +2415,8 @@ frida_run_to_entry_point (pid_t pid, GError ** error)
   regs.pc = GPOINTER_TO_SIZE (entry_point_address);
 #elif defined (HAVE_MIPS)
   regs.pc = GPOINTER_TO_SIZE (entry_point_address);
+#elif defined (HAVE_S390X)
+  regs.psw.addr = GPOINTER_TO_SIZE (entry_point_address);
 #else
 # error Unsupported architecture
 #endif
@@ -2698,6 +2822,23 @@ frida_remote_call (pid_t pid, GumAddress func, const GumAddress * args, gint arg
   regs.sp -= 16;
 
   regs.ra = FRIDA_DUMMY_RETURN_ADDRESS;
+#elif defined (HAVE_S390X)
+  regs.gprs[15] -= regs.gprs[15] % FRIDA_STACK_ALIGNMENT;
+
+  regs.psw.addr = func;
+
+  for (i = 0; i < args_length && i < 5; i++)
+    regs.gprs[2 + i] = args[i];
+  for (i = args_length - 1; i >= 5; i--)
+  {
+    regs.gprs[15] -= 8;
+
+    ret = ptrace (PTRACE_POKEDATA, pid, GSIZE_TO_POINTER (regs.gprs[15]), GSIZE_TO_POINTER (args[i]));
+    CHECK_OS_RESULT (ret, ==, 0, "PTRACE_POKEDATA");
+  }
+  regs.gprs[15] -= 160;
+
+  regs.gprs[14] = FRIDA_DUMMY_RETURN_ADDRESS;
 #else
 # error Unsupported architecture
 #endif
@@ -2724,6 +2865,8 @@ frida_remote_call (pid_t pid, GumAddress func, const GumAddress * args, gint arg
   *retval = regs.regs[0];
 #elif defined (HAVE_MIPS)
   *retval = regs.v0;
+#elif defined (HAVE_S390X)
+  *retval = regs.gprs[2];
 #else
 # error Unsupported architecture
 #endif
@@ -2782,6 +2925,9 @@ frida_remote_exec (pid_t pid, GumAddress remote_address, GumAddress remote_stack
 #elif defined (HAVE_MIPS)
   regs.pc = remote_address;
   regs.sp = remote_stack;
+#elif defined (HAVE_S390X)
+  regs.psw.addr = remote_address;
+  regs.gprs[15] = remote_stack;
 #else
 # error Unsupported architecture
 #endif
@@ -2810,6 +2956,8 @@ frida_remote_exec (pid_t pid, GumAddress remote_address, GumAddress remote_stack
     *result = regs.regs[0];
 #elif defined (HAVE_MIPS)
     *result = regs.v0;
+#elif defined (HAVE_S390X)
+    *result = regs.gprs[2];
 #else
 # error Unsupported architecture
 #endif

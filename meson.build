@@ -8,7 +8,8 @@ api_version = '1.0'
 
 host_os_family = host_machine.system()
 host_os = host_os_family
-host_is_64bit = host_machine.cpu_family().endswith('64')
+host_is_64bit = host_machine.cpu_family().endswith('64') or \
+    host_machine.cpu_family() == 's390x'
 if host_machine.cpu_family() == 'arm'
   host_arch = 'arm'
   host_abi = 'arm'
@@ -103,6 +104,7 @@ cpu_defines = [
   ['arm', 'HAVE_ARM'],
   ['arm64', 'HAVE_ARM64'],
   ['mips', 'HAVE_MIPS'],
+  ['s390x', 'HAVE_S390X'],
 ]
 foreach d : cpu_defines
   if d.get(0) == host_arch

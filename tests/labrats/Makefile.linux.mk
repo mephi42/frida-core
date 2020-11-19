@@ -10,6 +10,7 @@ all: \
 	sleeper-linux-arm64 \
 	sleeper-linux-mips \
 	sleeper-linux-mipsel \
+	sleeper-linux-s390x \
 	forker-linux-x86 \
 	forker-linux-x86_64 \
 	forker-linux-arm \
@@ -17,6 +18,7 @@ all: \
 	forker-linux-arm64 \
 	forker-linux-mips \
 	forker-linux-mipsel \
+	forker-linux-s390x \
 	spawner-linux-x86 \
 	spawner-linux-x86_64 \
 	spawner-linux-arm \
@@ -24,6 +26,7 @@ all: \
 	spawner-linux-arm64 \
 	spawner-linux-mips \
 	spawner-linux-mipsel \
+	spawner-linux-s390x \
 	simple-agent-linux-x86.so \
 	simple-agent-linux-x86_64.so \
 	simple-agent-linux-arm.so \
@@ -31,6 +34,7 @@ all: \
 	simple-agent-linux-arm64.so \
 	simple-agent-linux-mips.so \
 	simple-agent-linux-mipsel.so \
+	simple-agent-linux-s390x.so \
 	resident-agent-linux-x86.so \
 	resident-agent-linux-x86_64.so \
 	resident-agent-linux-arm.so \
@@ -38,6 +42,7 @@ all: \
 	resident-agent-linux-arm64.so \
 	resident-agent-linux-mips.so \
 	resident-agent-linux-mipsel.so \
+	resident-agent-linux-s390x.so \
 	$(NULL)
 
 define declare-executable
@@ -74,6 +79,11 @@ $1-linux-mips: $2
 $1-linux-mipsel: $2
 	mipsel-unknown-linux-uclibc-gcc $$(CFLAGS) $$(LDFLAGS) $$< -o $$@.tmp $3
 	mipsel-unknown-linux-uclibc-strip --strip-all $$@.tmp
+	mv $$@.tmp $$@
+
+$1-linux-s390x: $2
+	s390x-linux-gnu-gcc $$(CFLAGS) $$(LDFLAGS) $$< -o $$@.tmp $3
+	s390x-linux-gnu-strip --strip-all $$@.tmp
 	mv $$@.tmp $$@
 endef
 
@@ -116,6 +126,11 @@ $(eval $(call declare-executable,spawner,spawner-unix.c,-ldl))
 %-agent-linux-mipsel.so: %-agent.c
 	mipsel-unknown-linux-uclibc-gcc $(CFLAGS) $(LDFLAGS) -shared $< -o $@.tmp
 	mipsel-unknown-linux-uclibc-strip --strip-all $@.tmp
+	mv $@.tmp $@
+
+%-agent-linux-s390x.so: %-agent.c
+	s390x-linux-gnu-gcc $(CFLAGS) $(LDFLAGS) -shared $< -o $@.tmp
+	s390x-linux-gnu-strip --strip-all $@.tmp
 	mv $@.tmp $@
 
 .PHONY: all

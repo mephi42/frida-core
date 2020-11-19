@@ -36,6 +36,9 @@
 /* Define to 1 if target is MIPS based. */
 #mesondefine HAVE_MIPS
 
+/* Define to 1 if target is IBM Z. */
+#mesondefine HAVE_S390X
+
 /* Define to 1 if you have the <locale.h> header file. */
 #mesondefine HAVE_LOCALE_H
 

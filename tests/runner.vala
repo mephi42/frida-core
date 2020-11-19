@@ -123,6 +123,9 @@ namespace Frida.Test {
 			case CPU.MIPSEL:
 				abi_name = "mipsel";
 				break;
+			case CPU.S390X:
+				abi_name = "s390x";
+				break;
 			default:
 				assert_not_reached ();
 		}
@@ -176,7 +179,8 @@ namespace Frida.Test {
 		ARM_32,
 		ARM_64,
 		MIPS,
-		MIPSEL
+		MIPSEL,
+		S390X
 	}
 
 	public enum Arch {

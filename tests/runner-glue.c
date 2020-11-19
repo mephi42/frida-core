@@ -104,6 +104,8 @@ frida_test_cpu (void)
 # else
   return FRIDA_TEST_CPU_MIPS;
 # endif
+#elif defined (HAVE_S390X)
+  return FRIDA_TEST_CPU_S390X;
 #endif
 }
 
